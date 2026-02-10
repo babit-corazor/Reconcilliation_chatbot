@@ -1,6 +1,8 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 import pandas as pd
-
+import json
+from datetime import datetime, timezone
+from pathlib import Path
 import os
 from google import genai
 
@@ -11,6 +13,12 @@ if not GEMINI_API_KEY:
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 app = FastAPI()
+
+LOG_DIR = Path("logs")
+LOG_DIR.mkdir(exist_ok=True)
+
+LOG_FILE = LOG_DIR / "llm_product_tracking.jsonl"
+
 
 USE_CASES = {
     "CSV Upload Validation",
@@ -205,6 +213,10 @@ Explain the resolution clearly for an admin.
 
 
 
+def log_llm_decision(data: dict):
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(json.dumps(data, default=str) + "\n")
+
 
 @app.post("/run-use-cases")
 async def run_use_cases(file: UploadFile = File(...)):
@@ -228,9 +240,23 @@ async def run_use_cases(file: UploadFile = File(...)):
         else:
             result["solution"] = generate_llm_solution(result)
 
+        log_llm_decision({
+            "use_case": result["use_case"],
+            "status": result["status"],
+            "severity": result["severity"],
+            "source": result.get("source"),
+            "target": result.get("target"),
+            "llm_output": {
+                "model": "gemini-2.5-flash",
+                "explanation": result["solution"],
+            },
+            "created_at": datetime.now(timezone.utc)
+        })
+
         results.append(result)
 
     return {
         "total": len(results),
         "results": results
     }
+

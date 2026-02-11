@@ -5,6 +5,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 import os
 from google import genai
+from pymongo import MongoClient
+
+#------------MongoDB connect--------------
+MONGODB_URI = os.getenv("MONGODB_URI")
+if not MONGODB_URI:
+    raise RuntimeError("MONGODB_URI not set")
+mongo_client = MongoClient(MONGODB_URI)
+db = mongo_client["dkt-database"]
+
+products_collection = db["products"]
+
+product = products_collection.find_one({})
+print(product)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
